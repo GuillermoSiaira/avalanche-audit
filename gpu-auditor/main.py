@@ -1,9 +1,9 @@
+import subprocess
 import os
 import json
 import glob
 from datetime import datetime
 
-# Import Google Cloud Storage client if available
 try:
     from google.cloud import storage
 except ImportError:
@@ -14,8 +14,7 @@ CONTRACTS_DIR = "/workspace/gpu-auditor/contracts/"
 OUTPUT_DIR = "/workspace/gpu-auditor/output/"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "results.json")
 
-# If using GCS, specify your bucket name here
-GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME", "")  # Example: "my-gpu-auditor-bucket"
+GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME", "")
 GCS_DESTINATION_BLOB = "results.json"
 
 # === FUNCTIONS ===
@@ -25,17 +24,28 @@ def list_contracts():
     return glob.glob(os.path.join(CONTRACTS_DIR, "*.sol"))
 
 def analyze_contract(contract_path):
-    """Placeholder analysis for a contract."""
+    """Analyze a smart contract using DeepSeek via Ollama in RunPod."""
     with open(contract_path, "r", encoding="utf-8") as f:
         code = f.read()
-    # For now, generate only a dummy analysis
+
+    print(f"[INFO] Sending {os.path.basename(contract_path)} to DeepSeek model...")
+    
+    # Run DeepSeek model via Ollama
+    result = subprocess.run(
+        ["ollama", "run", "deepseek-coder:6.7b", f"Analyze the following Solidity smart contract for vulnerabilities and potential issues:\n\n{code}"],
+        capture_output=True, text=True
+    )
+
+    if result.returncode != 0:
+        print(f"[ERROR] DeepSeek model failed: {result.stderr}")
+        analysis_text = "Error running DeepSeek model"
+    else:
+        analysis_text = result.stdout.strip()
+
     return {
         "contract_name": os.path.basename(contract_path),
         "analysis_time": datetime.utcnow().isoformat() + "Z",
-        "findings": [
-            {"type": "info", "message": "Placeholder analysis - DeepSeek integration pending"}
-        ],
-        "code_preview": code[:200]  # first 200 characters
+        "findings": [{"type": "ai_analysis", "message": analysis_text}]
     }
 
 def save_results(results):
@@ -63,7 +73,7 @@ def upload_to_gcs(local_path, bucket_name, destination_blob):
 # === MAIN ===
 
 def main():
-    print("[INFO] Starting GPU Auditor - Placeholder Mode")
+    print("[INFO] Starting GPU Auditor - DeepSeek Mode")
     contracts = list_contracts()
     
     if not contracts:
@@ -89,3 +99,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
