@@ -41,4 +41,51 @@ def analyze_contract(contract_path):
 def save_results(results):
     """Save results to a JSON file."""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    with open(OUTPUT_FILE, "w", encoding="utf-8_
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2)
+    print(f"[INFO] Results saved to {OUTPUT_FILE}")
+
+def upload_to_gcs(local_path, bucket_name, destination_blob):
+    """Upload a file to Google Cloud Storage."""
+    if not storage:
+        print("[WARN] google-cloud-storage is not installed. Skipping GCS upload.")
+        return
+    if not bucket_name:
+        print("[WARN] GCS_BUCKET_NAME is not configured. Skipping GCS upload.")
+        return
+    
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(destination_blob)
+    blob.upload_from_filename(local_path)
+    print(f"[INFO] File {local_path} uploaded to gs://{bucket_name}/{destination_blob}")
+
+# === MAIN ===
+
+def main():
+    print("[INFO] Starting GPU Auditor - Placeholder Mode")
+    contracts = list_contracts()
+    
+    if not contracts:
+        print(f"[ERROR] No contracts found in {CONTRACTS_DIR}")
+        return
+    
+    print(f"[INFO] Contracts found: {len(contracts)}")
+    for c in contracts:
+        print(f"  - {os.path.basename(c)}")
+    
+    results = []
+    for contract in contracts:
+        print(f"[INFO] Analyzing contract: {os.path.basename(contract)}")
+        analysis = analyze_contract(contract)
+        results.append(analysis)
+    
+    save_results(results)
+
+    if GCS_BUCKET_NAME:
+        upload_to_gcs(OUTPUT_FILE, GCS_BUCKET_NAME, GCS_DESTINATION_BLOB)
+    else:
+        print("[INFO] GCS upload disabled (GCS_BUCKET_NAME not configured).")
+
+if __name__ == "__main__":
+    main()
